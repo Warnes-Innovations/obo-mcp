@@ -15,6 +15,9 @@ from datetime import datetime
 # Constants
 # ---------------------------------------------------------------------------
 
+_ACTIONABLE_STATUSES = {"pending", "in_progress"}
+_TERMINAL_STATUSES = {"completed", "skipped"}
+_VALID_ITEM_STATUSES = _ACTIONABLE_STATUSES | _TERMINAL_STATUSES
 _SCORE_COMPONENTS = {"urgency", "importance", "effort", "dependencies"}
 _SESSION_RE = re.compile(r"^session_\d{8}_\d{6}\.json$")
 
@@ -28,7 +31,10 @@ def obo_sessions_dir(base_dir: str | Path) -> Path:
     return Path(base_dir).resolve() / ".github" / "obo_sessions"
 
 
-def resolve_session_file(session_file: str | Path, base_dir: str | Path | None = None) -> Path:
+def resolve_session_file(
+    session_file: str | Path,
+    base_dir: str | Path | None = None,
+) -> Path:
     """Resolve session_file to an absolute Path.
 
     Accepts:
@@ -42,7 +48,8 @@ def resolve_session_file(session_file: str | Path, base_dir: str | Path | None =
         return (obo_sessions_dir(base_dir) / p).resolve()
     # Caller must pass an absolute path if base_dir is None
     raise ValueError(
-        f"session_file '{session_file}' is relative but no base_dir was provided"
+        f"session_file '{session_file}' is relative but no base_dir "
+        "was provided"
     )
 
 
@@ -75,10 +82,21 @@ def _recalc_priority(item: dict) -> int:
     return item["priority_score"]
 
 
+def _validate_item_status(status: object) -> str:
+    """Validate item status values used for workflow state transitions."""
+    if not isinstance(status, str) or status not in _VALID_ITEM_STATUSES:
+        raise ValueError(
+            "Invalid item status. Expected one of: "
+            f"{sorted(_VALID_ITEM_STATUSES)}"
+        )
+    return status
+
+
 def _normalize_item(item: dict, idx: int) -> dict:
     """Apply defaults to a new item and calculate priority_score."""
     item.setdefault("id", idx)
     item.setdefault("status", "pending")
+    _validate_item_status(item["status"])
     item.setdefault("title", f"Item {item['id']}")
     item.setdefault("category", "General")
     item.setdefault("description", "")
@@ -125,11 +143,39 @@ def _save_index(sessions_dir: Path, index: dict) -> None:
 
 
 def _pending_count(session: dict) -> int:
-    return len([i for i in session.get("items", []) if i.get("status") == "pending"])
+    return len(
+        [i for i in session.get("items", []) if i.get("status") == "pending"]
+    )
+
+
+def _in_progress_count(session: dict) -> int:
+    return len(
+        [i for i in session.get("items", []) if i.get("status") == "in_progress"]
+    )
+
+
+def _actionable_count(session: dict) -> int:
+    return len(
+        [
+            i for i in session.get("items", [])
+            if i.get("status") in _ACTIONABLE_STATUSES
+        ]
+    )
+
+
+def _sync_session_status(session: dict) -> str:
+    """Keep the session-level status in sync with item states."""
+    if _actionable_count(session) > 0:
+        session["status"] = "active"
+        session.pop("completed_at", None)
+    else:
+        session["status"] = "completed"
+        session.setdefault("completed_at", datetime.now().isoformat())
+    return session["status"]
 
 
 def _rebuild_index_from_files(sessions_dir: Path) -> dict:
-    """Scan all session_*.json files and return a fresh index dict (not saved)."""
+    """Scan all session_*.json files and return a fresh index dict."""
     rows = []
     for sf in sorted(sessions_dir.glob("session_*.json")):
         try:
@@ -139,6 +185,8 @@ def _rebuild_index_from_files(sessions_dir: Path) -> dict:
                 "title": s.get("title", sf.stem),
                 "status": s.get("status", "active"),
                 "pending": _pending_count(s),
+                "in_progress": _in_progress_count(s),
+                "actionable": _actionable_count(s),
                 "created": s.get("created", "")[:10],
             })
         except Exception:
@@ -147,12 +195,18 @@ def _rebuild_index_from_files(sessions_dir: Path) -> dict:
                 "title": "",
                 "status": "unreadable",
                 "pending": 0,
+                "in_progress": 0,
+                "actionable": 0,
                 "created": "",
             })
     return {"format_version": 1, "last_updated": "", "sessions": rows}
 
 
-def _upsert_index(sessions_dir: Path, session: dict, session_filename: str) -> None:
+def _upsert_index(
+    sessions_dir: Path,
+    session: dict,
+    session_filename: str,
+) -> None:
     """Add or update the index.json entry for this session.
 
     Automatically repairs a missing, corrupt, or structurally invalid index by
@@ -170,6 +224,8 @@ def _upsert_index(sessions_dir: Path, session: dict, session_filename: str) -> N
         "title": session.get("title", session_filename),
         "status": session.get("status", "active"),
         "pending": _pending_count(session),
+        "in_progress": _in_progress_count(session),
+        "actionable": _actionable_count(session),
         "created": session.get("created", "")[:10],
     }
     for i, s in enumerate(index["sessions"]):
@@ -200,7 +256,10 @@ def create_session(
 
     session_file.parent.mkdir(parents=True, exist_ok=True)
 
-    normalized = [_normalize_item(dict(item), idx) for idx, item in enumerate(items, start=1)]
+    normalized = [
+        _normalize_item(dict(item), idx)
+        for idx, item in enumerate(items, start=1)
+    ]
 
     session = {
         "session_file": session_file.name,
@@ -211,12 +270,16 @@ def create_session(
         "items": normalized,
     }
 
+    _sync_session_status(session)
     save_session(session_file, session)
     _upsert_index(session_file.parent, session, session_file.name)
     return session
 
 
-def list_sessions(sessions_dir: Path, status_filter: str | None = None) -> list[dict]:
+def list_sessions(
+    sessions_dir: Path,
+    status_filter: str | None = None,
+) -> list[dict]:
     """Return session summary dicts from index.json (fast path).
 
     Falls back to scanning session_*.json files if index.json is absent,
@@ -249,7 +312,11 @@ def list_sessions(sessions_dir: Path, status_filter: str | None = None) -> list[
     elif status_filter == "completed":
         rows = [r for r in rows if r.get("status") == "completed"]
     elif status_filter == "incomplete":
-        rows = [r for r in rows if r.get("status") == "active" and r.get("pending", 0) > 0]
+        rows = [
+            r for r in rows
+            if r.get("status") == "active"
+            and r.get("actionable", r.get("pending", 0)) > 0
+        ]
 
     return rows
 
@@ -303,19 +370,31 @@ def get_next(session_file: Path) -> dict | None:
     pending = [i for i in items if i.get("status") == "pending"]
 
     if in_progress:
-        return sorted(in_progress, key=lambda x: (-x.get("priority_score", 0), x["id"]))[0]
+        return sorted(
+            in_progress,
+            key=lambda x: (-x.get("priority_score", 0), x["id"]),
+        )[0]
     if pending:
-        return sorted(pending, key=lambda x: (-x.get("priority_score", 0), x["id"]))[0]
+        return sorted(
+            pending,
+            key=lambda x: (-x.get("priority_score", 0), x["id"]),
+        )[0]
     return None
 
 
-def list_items(session_file: Path, status_filter: str | None = None) -> list[dict]:
+def list_items(
+    session_file: Path,
+    status_filter: str | None = None,
+) -> list[dict]:
     """Return all items sorted by priority_score desc, optionally filtered."""
     session = load_session(session_file)
     items = session.get("items", [])
     if status_filter:
         items = [i for i in items if i.get("status") == status_filter]
-    return sorted(items, key=lambda x: (-x.get("priority_score", 0), x.get("id", 0)))
+    return sorted(
+        items,
+        key=lambda x: (-x.get("priority_score", 0), x.get("id", 0)),
+    )
 
 
 def get_item(session_file: Path, item_id: str | int) -> dict | None:
@@ -327,20 +406,29 @@ def get_item(session_file: Path, item_id: str | int) -> dict | None:
     return None
 
 
-def mark_complete(session_file: Path, item_id: str | int, resolution: str) -> dict:
+def mark_complete(
+    session_file: Path,
+    item_id: str | int,
+    resolution: str,
+) -> dict:
     """Mark an item completed with resolution text. Returns updated session."""
     session = load_session(session_file)
     for item in session["items"]:
         if str(item["id"]) == str(item_id):
             item["status"] = "completed"
             item["resolution"] = resolution
+            _sync_session_status(session)
             save_session(session_file, session)
             _upsert_index(session_file.parent, session, session_file.name)
             return session
     raise KeyError(f"Item {item_id} not found")
 
 
-def mark_skip(session_file: Path, item_id: str | int, reason: str = "") -> dict:
+def mark_skip(
+    session_file: Path,
+    item_id: str | int,
+    reason: str = "",
+) -> dict:
     """Mark an item skipped. Returns updated session."""
     session = load_session(session_file)
     for item in session["items"]:
@@ -348,14 +436,78 @@ def mark_skip(session_file: Path, item_id: str | int, reason: str = "") -> dict:
             item["status"] = "skipped"
             if reason:
                 item["skip_reason"] = reason
+            _sync_session_status(session)
             save_session(session_file, session)
             _upsert_index(session_file.parent, session, session_file.name)
             return session
     raise KeyError(f"Item {item_id} not found")
 
 
+def mark_in_progress(session_file: Path, item_id: str | int) -> dict:
+    """Mark an item in progress. Returns updated session."""
+    session = load_session(session_file)
+    for item in session["items"]:
+        if str(item["id"]) == str(item_id):
+            item["status"] = "in_progress"
+            _sync_session_status(session)
+            save_session(session_file, session)
+            _upsert_index(session_file.parent, session, session_file.name)
+            return session
+    raise KeyError(f"Item {item_id} not found")
+
+
+def complete_session(session_file: Path) -> dict:
+    """Mark the session completed when no actionable items remain."""
+    session = load_session(session_file)
+    if _actionable_count(session) > 0:
+        raise ValueError(
+            "Cannot complete session while pending or in_progress items remain"
+        )
+    session["status"] = "completed"
+    session.setdefault("completed_at", datetime.now().isoformat())
+    save_session(session_file, session)
+    _upsert_index(session_file.parent, session, session_file.name)
+    return session
+
+
+def merge_items(session_file: Path, items: list[dict]) -> dict:
+    """Append items to an existing session and reactivate it if needed."""
+    session = load_session(session_file)
+    existing_ids = {str(item.get("id")) for item in session.get("items", [])}
+    numeric_ids = [
+        int(item_id) for item_id in existing_ids if item_id.isdigit()
+    ]
+    next_idx = max(numeric_ids, default=0) + 1
+    merged_items = []
+
+    for raw_item in items:
+        item = dict(raw_item)
+        if "id" not in item:
+            while str(next_idx) in existing_ids:
+                next_idx += 1
+            item["id"] = next_idx
+            next_idx += 1
+        if str(item["id"]) in existing_ids:
+            raise ValueError(f"Duplicate item id: {item['id']}")
+        normalized = _normalize_item(item, item["id"])
+        session.setdefault("items", []).append(normalized)
+        merged_items.append(normalized)
+        existing_ids.add(str(normalized["id"]))
+
+    _sync_session_status(session)
+    save_session(session_file, session)
+    _upsert_index(session_file.parent, session, session_file.name)
+    return {
+        "session": session,
+        "merged_items": merged_items,
+    }
+
+
 def update_field(
-    session_file: Path, item_id: str | int, field: str, value: object
+    session_file: Path,
+    item_id: str | int,
+    field: str,
+    value: str | int,
 ) -> dict:
     """Update a field on an item, auto-recalculating priority_score if needed.
 
@@ -364,11 +516,15 @@ def update_field(
     session = load_session(session_file)
     for item in session["items"]:
         if str(item["id"]) == str(item_id):
+            if field == "status":
+                value = _validate_item_status(value)
             if field in _SCORE_COMPONENTS or field == "priority_score":
                 value = int(value)
             item[field] = value
             if field in _SCORE_COMPONENTS:
                 _recalc_priority(item)
+            _sync_session_status(session)
             save_session(session_file, session)
+            _upsert_index(session_file.parent, session, session_file.name)
             return item
     raise KeyError(f"Item {item_id} not found")

@@ -2,15 +2,17 @@
 
 import json
 import pytest
-from pathlib import Path
 
 from obo_mcp.server import (
+    obo_complete_session,
     obo_create,
     obo_get_item,
     obo_list_items,
     obo_list_sessions,
     obo_mark_complete,
+    obo_mark_in_progress,
     obo_mark_skip,
+    obo_merge_items,
     obo_next,
     obo_session_status,
     obo_update_field,
@@ -62,6 +64,18 @@ def test_obo_create_returns_metadata(base_dir):
     assert data["items_created"] == 3
     assert data["status"] == "active"
     assert data["session_file"] == "session_20260314_130000.json"
+
+
+def test_obo_create_returns_completed_status_when_all_items_done(base_dir):
+    result = obo_create(
+        base_dir=base_dir,
+        title="Finished Session",
+        description="desc",
+        items=[{"title": "Done", "status": "completed"}],
+        session_filename="session_20260314_130500.json",
+    )
+    data = json.loads(result)
+    assert data["status"] == "completed"
 
 
 def test_obo_create_updates_index(base_dir):
@@ -207,6 +221,13 @@ def test_obo_mark_skip_no_reason(base_dir, session_name):
     assert data["action"] == "skipped"
 
 
+def test_obo_mark_in_progress(base_dir, session_name):
+    result = obo_mark_in_progress(session_file=session_name, item_id="2", base_dir=base_dir)
+    data = json.loads(result)
+    assert data["action"] == "in_progress"
+    assert data["total_in_progress"] == 1
+
+
 # ---------------------------------------------------------------------------
 # obo_update_field
 # ---------------------------------------------------------------------------
@@ -234,3 +255,46 @@ def test_obo_update_field_unknown_id(base_dir, session_name):
         session_file=session_name, item_id="999", field="title", value="Ghost", base_dir=base_dir
     )
     assert result.startswith("ERROR:")
+
+
+def test_obo_update_field_rejects_invalid_status(base_dir, session_name):
+    result = obo_update_field(
+        session_file=session_name,
+        item_id="1",
+        field="status",
+        value="blocked",
+        base_dir=base_dir,
+    )
+    assert result.startswith("ERROR:")
+
+
+def test_obo_complete_session_rejects_actionable_items(base_dir, session_name):
+    result = obo_complete_session(session_file=session_name, base_dir=base_dir)
+    assert result.startswith("ERROR:")
+
+
+def test_obo_complete_session(base_dir):
+    result = obo_create(
+        base_dir=base_dir,
+        title="Finished",
+        description="done",
+        items=[{"title": "Done", "status": "completed"}],
+        session_filename="session_20260314_160000.json",
+    )
+    session_name = json.loads(result)["session_file"]
+    complete_result = obo_complete_session(session_file=session_name, base_dir=base_dir)
+    data = json.loads(complete_result)
+    assert data["action"] == "session_completed"
+    assert data["session_status"] == "completed"
+
+
+def test_obo_merge_items(base_dir, session_name):
+    result = obo_merge_items(
+        session_file=session_name,
+        items=[{"title": "Delta"}],
+        base_dir=base_dir,
+    )
+    data = json.loads(result)
+    assert data["action"] == "merged"
+    assert data["merged_count"] == 1
+    assert data["total_items"] == 4

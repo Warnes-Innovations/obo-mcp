@@ -5,6 +5,7 @@ import pytest
 from pathlib import Path
 
 from obo_mcp.session import (
+    complete_session,
     create_session,
     get_item,
     get_next,
@@ -12,7 +13,9 @@ from obo_mcp.session import (
     list_sessions,
     load_index,
     mark_complete,
+    mark_in_progress,
     mark_skip,
+    merge_items,
     obo_sessions_dir,
     resolve_session_file,
     session_status,
@@ -110,6 +113,12 @@ def test_create_session_calculates_priority(sessions_dir):
     assert session["items"][0]["priority_score"] == 5 + 5 + (6 - 1) + 5  # == 20
 
 
+def test_create_session_rejects_invalid_item_status(sessions_dir):
+    sf = sessions_dir / "session_20260314_160500.json"
+    with pytest.raises(ValueError, match="Invalid item status"):
+        create_session(sf, [{"title": "Bad", "status": "blocked"}])
+
+
 # ---------------------------------------------------------------------------
 # get_next
 # ---------------------------------------------------------------------------
@@ -187,6 +196,21 @@ def test_mark_skip_no_reason(session_file):
     assert item["status"] == "skipped"
 
 
+def test_mark_in_progress_sets_status(session_file):
+    session = mark_in_progress(session_file, 2)
+    item = next(i for i in session["items"] if i["id"] == 2)
+    assert item["status"] == "in_progress"
+
+
+def test_mark_in_progress_updates_index(session_file):
+    mark_in_progress(session_file, 2)
+    idx = json.loads((session_file.parent / "index.json").read_text())
+    entry = next(s for s in idx["sessions"] if s["file"] == session_file.name)
+    assert entry["pending"] == 2
+    assert entry["in_progress"] == 1
+    assert entry["actionable"] == 3
+
+
 # ---------------------------------------------------------------------------
 # update_field
 # ---------------------------------------------------------------------------
@@ -214,6 +238,20 @@ def test_update_field_non_score_no_recalc(session_file):
     item = update_field(session_file, 1, "title", "New Title")
     assert item["title"] == "New Title"
     assert item["priority_score"] == original_score
+
+
+def test_update_field_status_updates_index(session_file):
+    update_field(session_file, 1, "status", "in_progress")
+    idx = json.loads((session_file.parent / "index.json").read_text())
+    entry = next(s for s in idx["sessions"] if s["file"] == session_file.name)
+    assert entry["pending"] == 2
+    assert entry["in_progress"] == 1
+    assert entry["actionable"] == 3
+
+
+def test_update_field_rejects_invalid_status(session_file):
+    with pytest.raises(ValueError, match="Invalid item status"):
+        update_field(session_file, 1, "status", "blocked")
 
 
 def test_update_field_raises_on_unknown_id(session_file):
@@ -251,6 +289,19 @@ def test_session_status_counts(session_file):
     assert stats["skipped"] == 1
     assert stats["pending"] == 1
     assert stats["done"] == 2
+
+
+def test_session_auto_completes_when_no_actionable_items(sessions_dir):
+    sf = sessions_dir / "session_20260314_171000.json"
+    create_session(sf, [{"title": "Done Me"}])
+    session = mark_complete(sf, 1, "done")
+    assert session["status"] == "completed"
+    assert session["completed_at"]
+
+    idx = json.loads((sessions_dir / "index.json").read_text())
+    entry = next(s for s in idx["sessions"] if s["file"] == sf.name)
+    assert entry["status"] == "completed"
+    assert entry["actionable"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +350,14 @@ def test_list_sessions_status_filter_completed(sessions_dir, session_file):
     assert not any(r["file"] == session_file.name for r in rows)
 
 
+def test_list_sessions_status_filter_incomplete_includes_in_progress_only(sessions_dir):
+    sf = sessions_dir / "session_20260314_195000.json"
+    create_session(sf, [{"title": "Only Item"}])
+    mark_in_progress(sf, 1)
+    rows = list_sessions(sessions_dir, status_filter="incomplete")
+    assert any(r["file"] == sf.name for r in rows)
+
+
 # ---------------------------------------------------------------------------
 # obo_sessions_dir / resolve_session_file
 # ---------------------------------------------------------------------------
@@ -345,6 +404,39 @@ def test_get_item_string_id(session_file):
     item = get_item(session_file, "2")
     assert item is not None
     assert item["id"] == 2
+
+
+def test_complete_session_raises_with_actionable_items(session_file):
+    with pytest.raises(ValueError, match="pending or in_progress"):
+        complete_session(session_file)
+
+
+def test_complete_session_succeeds_when_done(sessions_dir):
+    sf = sessions_dir / "session_20260314_196000.json"
+    create_session(sf, [{"title": "Done", "status": "completed"}], title="Finished")
+    session = complete_session(sf)
+    assert session["status"] == "completed"
+    assert session["completed_at"]
+
+
+def test_merge_items_appends_and_reopens_completed_session(sessions_dir):
+    sf = sessions_dir / "session_20260314_197000.json"
+    create_session(sf, [{"title": "Initial"}], title="Merge Test")
+    mark_complete(sf, 1, "done")
+
+    result = merge_items(sf, [{"title": "Follow-up"}])
+    session = result["session"]
+    assert session["status"] == "active"
+    assert len(result["merged_items"]) == 1
+    assert len(session["items"]) == 2
+    assert session["items"][-1]["id"] == 2
+
+
+def test_merge_items_rejects_duplicate_ids(sessions_dir):
+    sf = sessions_dir / "session_20260314_198000.json"
+    create_session(sf, [{"id": "phase-1", "title": "Initial"}], title="Dup Test")
+    with pytest.raises(ValueError, match="Duplicate item id"):
+        merge_items(sf, [{"id": "phase-1", "title": "Conflict"}])
 
 
 # ---------------------------------------------------------------------------

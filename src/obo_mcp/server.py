@@ -1,5 +1,5 @@
 """
-OBO MCP Server — 9 tools for One-By-One session management.
+OBO MCP Server — 12 tools for One-By-One session management.
 
 Uses FastMCP for concise tool registration.
 """
@@ -13,15 +13,17 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 
 from obo_mcp.session import (
+    complete_session,
     create_session,
     get_item,
     get_next,
     list_items,
     list_sessions,
     mark_complete,
+    mark_in_progress,
     mark_skip,
+    merge_items,
     obo_sessions_dir,
-    resolve_session_file,
     session_status,
     update_field,
 )
@@ -60,11 +62,11 @@ def obo_create(
     """Create a new OBO session file and update index.json atomically.
 
     Args:
-        base_dir: Project root directory (session goes in {base_dir}/.github/obo_sessions/)
+        base_dir: Project root directory.
         title: Human-readable session title
         description: What this session is reviewing
-        items: List of item dicts (title, description, urgency, importance, effort, dependencies, category are all optional with defaults)
-        session_filename: Optional explicit filename (e.g. session_20260314_120000.json).
+        items: List of item dicts. All priority fields are optional.
+        session_filename: Optional explicit filename.
                           If omitted, generated from current timestamp.
     """
     from datetime import datetime
@@ -77,7 +79,12 @@ def obo_create(
         sf = sessions_dir / f"session_{ts}.json"
 
     try:
-        session = create_session(sf, items, title=title, description=description)
+        session = create_session(
+            sf,
+            items,
+            title=title,
+            description=description,
+        )
     except FileExistsError as e:
         return f"ERROR: {e}"
 
@@ -86,7 +93,7 @@ def obo_create(
         "path": str(sf),
         "title": session["title"],
         "items_created": len(session["items"]),
-        "status": "active",
+        "status": session["status"],
     }, indent=2)
 
 
@@ -108,7 +115,9 @@ def obo_list_sessions(
     """
     sessions_dir = obo_sessions_dir(base_dir)
     if not sessions_dir.exists():
-        return json.dumps({"sessions": [], "message": "No obo_sessions directory found"})
+        return json.dumps(
+            {"sessions": [], "message": "No obo_sessions directory found"}
+        )
 
     rows = list_sessions(sessions_dir, status_filter=status_filter)
     return json.dumps({"sessions": rows, "total": len(rows)}, indent=2)
@@ -126,7 +135,7 @@ def obo_session_status(
     """Return summary statistics for an OBO session.
 
     Args:
-        session_file: Absolute path or filename relative to {base_dir}/.github/obo_sessions/
+        session_file: Absolute path or filename relative to the sessions dir.
         base_dir: Required if session_file is a bare filename
     """
     try:
@@ -151,14 +160,16 @@ def obo_next(
     Returns in_progress items first (highest priority_score), then pending.
 
     Args:
-        session_file: Absolute path or filename relative to {base_dir}/.github/obo_sessions/
+        session_file: Absolute path or filename relative to the sessions dir.
         base_dir: Required if session_file is a bare filename
     """
     try:
         sf = _resolve(session_file, base_dir)
         item = get_next(sf)
         if item is None:
-            return json.dumps({"message": "No pending items — session complete!"})
+            return json.dumps(
+                {"message": "No pending items — session complete!"}
+            )
         return json.dumps(item, indent=2)
     except Exception as e:
         return f"ERROR: {e}"
@@ -177,9 +188,9 @@ def obo_list_items(
     """List all items in a session, sorted by priority_score descending.
 
     Args:
-        session_file: Absolute path or filename relative to {base_dir}/.github/obo_sessions/
+        session_file: Absolute path or filename relative to the sessions dir.
         base_dir: Required if session_file is a bare filename
-        status_filter: Optional — 'pending', 'in_progress', 'completed', 'skipped'
+        status_filter: Optional item status filter.
     """
     try:
         sf = _resolve(session_file, base_dir)
@@ -202,7 +213,7 @@ def obo_get_item(
     """Return full detail for a single item.
 
     Args:
-        session_file: Absolute path or filename relative to {base_dir}/.github/obo_sessions/
+        session_file: Absolute path or filename relative to the sessions dir.
         item_id: Item ID (integer or string)
         base_dir: Required if session_file is a bare filename
     """
@@ -230,7 +241,7 @@ def obo_mark_complete(
     """Mark an item as completed with resolution text.
 
     Args:
-        session_file: Absolute path or filename relative to {base_dir}/.github/obo_sessions/
+        session_file: Absolute path or filename relative to the sessions dir.
         item_id: Item ID to mark complete
         resolution: Text describing how the item was resolved
         base_dir: Required if session_file is a bare filename
@@ -268,7 +279,7 @@ def obo_mark_skip(
     """Mark an item as skipped.
 
     Args:
-        session_file: Absolute path or filename relative to {base_dir}/.github/obo_sessions/
+        session_file: Absolute path or filename relative to the sessions dir.
         item_id: Item ID to skip
         base_dir: Required if session_file is a bare filename
         reason: Optional reason for skipping
@@ -295,6 +306,98 @@ def obo_mark_skip(
 # Tool: obo_update_field
 # ---------------------------------------------------------------------------
 
+
+@mcp.tool()
+def obo_mark_in_progress(
+    session_file: str,
+    item_id: str,
+    base_dir: Optional[str] = None,
+) -> str:
+    """Mark an item as in progress.
+
+    Args:
+        session_file: Absolute path or filename relative to the sessions dir.
+        item_id: Item ID to mark in progress
+        base_dir: Required if session_file is a bare filename
+    """
+    try:
+        sf = _resolve(session_file, base_dir)
+        session = mark_in_progress(sf, item_id)
+        items = session.get("items", [])
+        in_progress = len(
+            [i for i in items if i.get("status") == "in_progress"]
+        )
+        return json.dumps({
+            "status": "ok",
+            "item_id": item_id,
+            "action": "in_progress",
+            "total_in_progress": in_progress,
+            "session_status": session.get("status", "active"),
+        }, indent=2)
+    except KeyError as e:
+        return f"ERROR: {e}"
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
+@mcp.tool()
+def obo_complete_session(
+    session_file: str,
+    base_dir: Optional[str] = None,
+) -> str:
+    """Mark a session completed when no actionable items remain.
+
+    Args:
+        session_file: Absolute path or filename relative to the sessions dir.
+        base_dir: Required if session_file is a bare filename
+    """
+    try:
+        sf = _resolve(session_file, base_dir)
+        session = complete_session(sf)
+        return json.dumps({
+            "status": "ok",
+            "action": "session_completed",
+            "session_file": sf.name,
+            "session_status": session.get("status", "completed"),
+        }, indent=2)
+    except ValueError as e:
+        return f"ERROR: {e}"
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
+@mcp.tool()
+def obo_merge_items(
+    session_file: str,
+    items: list[dict],
+    base_dir: Optional[str] = None,
+) -> str:
+    """Append new items to an existing session.
+
+    Args:
+        session_file: Absolute path or filename relative to the sessions dir.
+        items: List of item dicts to append to the session
+        base_dir: Required if session_file is a bare filename
+    """
+    try:
+        sf = _resolve(session_file, base_dir)
+        result = merge_items(sf, items)
+        session = result["session"]
+        merged_items = result["merged_items"]
+        return json.dumps({
+            "status": "ok",
+            "action": "merged",
+            "session_file": sf.name,
+            "merged_count": len(merged_items),
+            "total_items": len(session.get("items", [])),
+            "session_status": session.get("status", "active"),
+        }, indent=2)
+    except ValueError as e:
+        return f"ERROR: {e}"
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
 @mcp.tool()
 def obo_update_field(
     session_file: str,
@@ -307,10 +410,10 @@ def obo_update_field(
     score component (urgency, importance, effort, dependencies) is changed.
 
     Args:
-        session_file: Absolute path or filename relative to {base_dir}/.github/obo_sessions/
+        session_file: Absolute path or filename relative to the sessions dir.
         item_id: Item ID to update
         field: Field name (e.g. 'urgency', 'title', 'description', 'status')
-        value: New value (always passed as string; numeric fields are cast automatically)
+        value: New value. Numeric score fields are cast automatically.
         base_dir: Required if session_file is a bare filename
     """
     try:
