@@ -1,5 +1,7 @@
 """Integration tests for MCP tool handlers in server.py."""
 
+# mypy: disable-error-code=import-untyped
+
 import json
 import pytest
 
@@ -24,19 +26,42 @@ from obo_mcp.server import (
 # ---------------------------------------------------------------------------
 
 SAMPLE_ITEMS = [
-    {"title": "Alpha", "urgency": 5, "importance": 4, "effort": 2, "dependencies": 3},
-    {"title": "Beta",  "urgency": 2, "importance": 3, "effort": 4, "dependencies": 1},
-    {"title": "Gamma", "urgency": 3, "importance": 3, "effort": 3, "dependencies": 1},
+    {
+        "title": "Alpha",
+        "urgency": 5,
+        "importance": 4,
+        "effort": 2,
+        "dependencies": 3,
+    },
+    {
+        "title": "Beta",
+        "urgency": 2,
+        "importance": 3,
+        "effort": 4,
+        "dependencies": 1,
+    },
+    {
+        "title": "Gamma",
+        "urgency": 3,
+        "importance": 3,
+        "effort": 3,
+        "dependencies": 1,
+    },
 ]
 
 
 @pytest.fixture
-def base_dir(tmp_path):
+def _base_dir(tmp_path):
     return str(tmp_path)
 
 
-@pytest.fixture
-def session_name(base_dir):
+@pytest.fixture(name="base_dir")
+def fixture_base_dir(_base_dir):
+    return _base_dir
+
+
+@pytest.fixture(name="session_name")
+def fixture_session_name(base_dir):
     result = obo_create(
         base_dir=base_dir,
         title="Test Session",
@@ -87,8 +112,12 @@ def test_obo_create_updates_index(base_dir):
         session_filename="session_20260314_140000.json",
     )
     from obo_mcp.session import obo_sessions_dir, load_index
+
     idx = load_index(obo_sessions_dir(base_dir))
-    assert any(s["file"] == "session_20260314_140000.json" for s in idx["sessions"])
+    assert any(
+        s["file"] == "session_20260314_140000.json"
+        for s in idx["sessions"]
+    )
 
 
 def test_obo_create_duplicate_returns_error(base_dir, session_name):
@@ -160,7 +189,10 @@ def test_obo_next_no_items(base_dir):
         items=[{"title": "Done", "status": "completed"}],
         session_filename="session_20260314_150000.json",
     )
-    result = obo_next(session_file="session_20260314_150000.json", base_dir=base_dir)
+    result = obo_next(
+        session_file="session_20260314_150000.json",
+        base_dir=base_dir,
+    )
     data = json.loads(result)
     assert "message" in data
 
@@ -177,8 +209,17 @@ def test_obo_list_items_sorted(base_dir, session_name):
 
 
 def test_obo_list_items_filter(base_dir, session_name):
-    obo_mark_complete(session_file=session_name, item_id="1", resolution="Done", base_dir=base_dir)
-    result = obo_list_items(session_file=session_name, base_dir=base_dir, status_filter="completed")
+    obo_mark_complete(
+        session_file=session_name,
+        item_id="1",
+        resolution="Done",
+        base_dir=base_dir,
+    )
+    result = obo_list_items(
+        session_file=session_name,
+        base_dir=base_dir,
+        status_filter="completed",
+    )
     data = json.loads(result)
     assert data["total"] == 1
 
@@ -188,13 +229,21 @@ def test_obo_list_items_filter(base_dir, session_name):
 # ---------------------------------------------------------------------------
 
 def test_obo_get_item(base_dir, session_name):
-    result = obo_get_item(session_file=session_name, item_id="1", base_dir=base_dir)
+    result = obo_get_item(
+        session_file=session_name,
+        item_id="1",
+        base_dir=base_dir,
+    )
     data = json.loads(result)
     assert data["title"] == "Alpha"
 
 
 def test_obo_get_item_not_found(base_dir, session_name):
-    result = obo_get_item(session_file=session_name, item_id="999", base_dir=base_dir)
+    result = obo_get_item(
+        session_file=session_name,
+        item_id="999",
+        base_dir=base_dir,
+    )
     assert result.startswith("ERROR:")
 
 
@@ -203,7 +252,12 @@ def test_obo_get_item_not_found(base_dir, session_name):
 # ---------------------------------------------------------------------------
 
 def test_obo_mark_complete(base_dir, session_name):
-    result = obo_mark_complete(session_file=session_name, item_id="1", resolution="Fixed", base_dir=base_dir)
+    result = obo_mark_complete(
+        session_file=session_name,
+        item_id="1",
+        resolution="Fixed",
+        base_dir=base_dir,
+    )
     data = json.loads(result)
     assert data["action"] == "completed"
     assert data["resolution"] == "Fixed"
@@ -211,7 +265,12 @@ def test_obo_mark_complete(base_dir, session_name):
 
 
 def test_obo_mark_complete_unknown_id(base_dir, session_name):
-    result = obo_mark_complete(session_file=session_name, item_id="999", resolution="?", base_dir=base_dir)
+    result = obo_mark_complete(
+        session_file=session_name,
+        item_id="999",
+        resolution="?",
+        base_dir=base_dir,
+    )
     assert result.startswith("ERROR:")
 
 
@@ -220,20 +279,33 @@ def test_obo_mark_complete_unknown_id(base_dir, session_name):
 # ---------------------------------------------------------------------------
 
 def test_obo_mark_skip(base_dir, session_name):
-    result = obo_mark_skip(session_file=session_name, item_id="2", reason="Not applicable", base_dir=base_dir)
+    result = obo_mark_skip(
+        session_file=session_name,
+        item_id="2",
+        reason="Not applicable",
+        base_dir=base_dir,
+    )
     data = json.loads(result)
     assert data["action"] == "skipped"
     assert data["total_skipped"] == 1
 
 
 def test_obo_mark_skip_no_reason(base_dir, session_name):
-    result = obo_mark_skip(session_file=session_name, item_id="3", base_dir=base_dir)
+    result = obo_mark_skip(
+        session_file=session_name,
+        item_id="3",
+        base_dir=base_dir,
+    )
     data = json.loads(result)
     assert data["action"] == "skipped"
 
 
 def test_obo_mark_in_progress(base_dir, session_name):
-    result = obo_mark_in_progress(session_file=session_name, item_id="2", base_dir=base_dir)
+    result = obo_mark_in_progress(
+        session_file=session_name,
+        item_id="2",
+        base_dir=base_dir,
+    )
     data = json.loads(result)
     assert data["action"] == "in_progress"
     assert data["total_in_progress"] == 1
@@ -245,7 +317,11 @@ def test_obo_mark_in_progress(base_dir, session_name):
 
 def test_obo_update_field_score_recalculates(base_dir, session_name):
     result = obo_update_field(
-        session_file=session_name, item_id="1", field="urgency", value="1", base_dir=base_dir
+        session_file=session_name,
+        item_id="1",
+        field="urgency",
+        value="1",
+        base_dir=base_dir,
     )
     data = json.loads(result)
     # urgency=1, importance=4, effort=2, dependencies=3 → 1+4+4+3 = 12
@@ -254,7 +330,11 @@ def test_obo_update_field_score_recalculates(base_dir, session_name):
 
 def test_obo_update_field_non_score(base_dir, session_name):
     result = obo_update_field(
-        session_file=session_name, item_id="1", field="title", value="Renamed", base_dir=base_dir
+        session_file=session_name,
+        item_id="1",
+        field="title",
+        value="Renamed",
+        base_dir=base_dir,
     )
     data = json.loads(result)
     assert data["new_value"] == "Renamed"
@@ -263,7 +343,11 @@ def test_obo_update_field_non_score(base_dir, session_name):
 
 def test_obo_update_field_unknown_id(base_dir, session_name):
     result = obo_update_field(
-        session_file=session_name, item_id="999", field="title", value="Ghost", base_dir=base_dir
+        session_file=session_name,
+        item_id="999",
+        field="title",
+        value="Ghost",
+        base_dir=base_dir,
     )
     assert result.startswith("ERROR:")
 
@@ -292,8 +376,11 @@ def test_obo_complete_session(base_dir):
         items=[{"title": "Done", "status": "completed"}],
         session_filename="session_20260314_160000.json",
     )
-    session_name = json.loads(result)["session_file"]
-    complete_result = obo_complete_session(session_file=session_name, base_dir=base_dir)
+    created_session_name = json.loads(result)["session_file"]
+    complete_result = obo_complete_session(
+        session_file=created_session_name,
+        base_dir=base_dir,
+    )
     data = json.loads(complete_result)
     assert data["action"] == "session_completed"
     assert data["session_status"] == "completed"
@@ -336,35 +423,41 @@ def test_obo_end_to_end_agent_workflow(base_dir):
         ],
         session_filename="session_20260314_170000.json",
     )
-    session_name = json.loads(create_result)["session_file"]
+    created_session_name = json.loads(create_result)["session_file"]
 
-    next_result = obo_next(session_file=session_name, base_dir=base_dir)
+    next_result = obo_next(
+        session_file=created_session_name,
+        base_dir=base_dir,
+    )
     assert json.loads(next_result)["id"] == "phase-1"
 
     in_progress_result = obo_mark_in_progress(
-        session_file=session_name,
+        session_file=created_session_name,
         item_id="phase-1",
         base_dir=base_dir,
     )
     assert json.loads(in_progress_result)["action"] == "in_progress"
 
-    resumed_result = obo_next(session_file=session_name, base_dir=base_dir)
+    resumed_result = obo_next(
+        session_file=created_session_name,
+        base_dir=base_dir,
+    )
     assert json.loads(resumed_result)["id"] == "phase-1"
 
     merge_result = obo_merge_items(
-        session_file=session_name,
+        session_file=created_session_name,
         items=[{"id": "phase-3", "title": "Verify"}],
         base_dir=base_dir,
     )
     assert json.loads(merge_result)["merged_count"] == 1
 
     assert obo_complete_session(
-        session_file=session_name,
+        session_file=created_session_name,
         base_dir=base_dir,
     ).startswith("ERROR:")
 
     complete_result = obo_mark_complete(
-        session_file=session_name,
+        session_file=created_session_name,
         item_id="phase-1",
         resolution="Design done",
         base_dir=base_dir,
@@ -372,7 +465,7 @@ def test_obo_end_to_end_agent_workflow(base_dir):
     assert json.loads(complete_result)["action"] == "completed"
 
     skip_result = obo_mark_skip(
-        session_file=session_name,
+        session_file=created_session_name,
         item_id="phase-2",
         reason="Deferred",
         base_dir=base_dir,
@@ -380,14 +473,17 @@ def test_obo_end_to_end_agent_workflow(base_dir):
     assert json.loads(skip_result)["action"] == "skipped"
 
     final_complete_result = obo_mark_complete(
-        session_file=session_name,
+        session_file=created_session_name,
         item_id="phase-3",
         resolution="Verified",
         base_dir=base_dir,
     )
     assert json.loads(final_complete_result)["action"] == "completed"
 
-    status_result = obo_session_status(session_file=session_name, base_dir=base_dir)
+    status_result = obo_session_status(
+        session_file=created_session_name,
+        base_dir=base_dir,
+    )
     status_data = json.loads(status_result)
     assert status_data["status"] == "completed"
     assert status_data["completed"] == 2
@@ -395,12 +491,18 @@ def test_obo_end_to_end_agent_workflow(base_dir):
     assert status_data["pending"] == 0
     assert status_data["in_progress"] == 0
 
-    close_result = obo_complete_session(session_file=session_name, base_dir=base_dir)
+    close_result = obo_complete_session(
+        session_file=created_session_name,
+        base_dir=base_dir,
+    )
     close_data = json.loads(close_result)
     assert close_data["action"] == "session_completed"
     assert close_data["session_status"] == "completed"
 
-    sessions_result = obo_list_sessions(base_dir=base_dir, status_filter="completed")
+    sessions_result = obo_list_sessions(
+        base_dir=base_dir,
+        status_filter="completed",
+    )
     sessions_data = json.loads(sessions_result)
     assert sessions_data["total"] == 1
-    assert sessions_data["sessions"][0]["file"] == session_name
+    assert sessions_data["sessions"][0]["file"] == created_session_name

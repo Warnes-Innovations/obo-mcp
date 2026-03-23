@@ -16,3 +16,9 @@ packages = ["src/obo_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = ["obo_mcp", "obo_mcp.*"]
+ignore_missing_imports = true

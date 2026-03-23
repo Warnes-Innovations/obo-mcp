@@ -31,6 +31,8 @@ from obo_mcp.session import (
 
 mcp = FastMCP("obo-mcp", instructions="One-By-One session management tools")
 
+_TOOL_EXCEPTIONS = (OSError, ValueError, json.JSONDecodeError)
+
 
 # ---------------------------------------------------------------------------
 # Helper: resolve session_file argument
@@ -144,7 +146,7 @@ def obo_session_status(
         sf = _resolve(session_file, base_dir)
         stats = session_status(sf)
         return json.dumps(stats, indent=2)
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -173,7 +175,7 @@ def obo_next(
                 {"message": "No pending items — session complete!"}
             )
         return json.dumps(item, indent=2)
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -198,7 +200,7 @@ def obo_list_items(
         sf = _resolve(session_file, base_dir)
         items = list_items(sf, status_filter=status_filter)
         return json.dumps({"items": items, "total": len(items)}, indent=2)
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -225,7 +227,7 @@ def obo_get_item(
         if item is None:
             return f"ERROR: Item {item_id} not found"
         return json.dumps(item, indent=2)
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -263,7 +265,7 @@ def obo_mark_complete(
         }, indent=2)
     except KeyError as e:
         return f"ERROR: {e}"
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -300,7 +302,7 @@ def obo_mark_skip(
         }, indent=2)
     except KeyError as e:
         return f"ERROR: {e}"
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -338,7 +340,7 @@ def obo_mark_in_progress(
         }, indent=2)
     except KeyError as e:
         return f"ERROR: {e}"
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -364,7 +366,7 @@ def obo_complete_session(
         }, indent=2)
     except ValueError as e:
         return f"ERROR: {e}"
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -396,7 +398,7 @@ def obo_merge_items(
         }, indent=2)
     except ValueError as e:
         return f"ERROR: {e}"
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 
@@ -432,7 +434,7 @@ def obo_update_field(
         return json.dumps(result, indent=2)
     except KeyError as e:
         return f"ERROR: {e}"
-    except Exception as e:
+    except _TOOL_EXCEPTIONS as e:
         return f"ERROR: {e}"
 
 

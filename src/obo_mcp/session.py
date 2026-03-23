@@ -8,8 +8,8 @@ relative to {base_dir}/.github/obo_sessions/.
 
 import json
 import re
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -68,12 +68,12 @@ def resolve_session_file(
 # ---------------------------------------------------------------------------
 
 def load_session(session_file: Path) -> dict:
-    with open(session_file, "r") as f:
+    with open(session_file, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def save_session(session_file: Path, session: dict) -> None:
-    with open(session_file, "w") as f:
+    with open(session_file, "w", encoding="utf-8") as f:
         json.dump(session, f, indent=2)
 
 
@@ -141,14 +141,14 @@ def _is_valid_index(index: object) -> bool:
 def load_index(sessions_dir: Path) -> dict:
     idx_path = _index_path(sessions_dir)
     if idx_path.exists():
-        with open(idx_path) as f:
+        with open(idx_path, encoding="utf-8") as f:
             return json.load(f)
     return {"format_version": 1, "last_updated": "", "sessions": []}
 
 
 def _save_index(sessions_dir: Path, index: dict) -> None:
     index["last_updated"] = datetime.now().isoformat()
-    with open(_index_path(sessions_dir), "w") as f:
+    with open(_index_path(sessions_dir), "w", encoding="utf-8") as f:
         json.dump(index, f, indent=2)
 
 
@@ -160,7 +160,10 @@ def _pending_count(session: dict) -> int:
 
 def _in_progress_count(session: dict) -> int:
     return len(
-        [i for i in session.get("items", []) if i.get("status") == "in_progress"]
+        [
+            i for i in session.get("items", [])
+            if i.get("status") == "in_progress"
+        ]
     )
 
 
@@ -199,7 +202,7 @@ def _rebuild_index_from_files(sessions_dir: Path) -> dict:
                 "actionable": _actionable_count(s),
                 "created": s.get("created", "")[:10],
             })
-        except Exception:
+        except (OSError, ValueError, json.JSONDecodeError):
             rows.append({
                 "file": sf.name,
                 "title": "",
