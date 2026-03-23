@@ -309,3 +309,98 @@ def test_obo_merge_items(base_dir, session_name):
     assert data["action"] == "merged"
     assert data["merged_count"] == 1
     assert data["total_items"] == 4
+
+
+def test_obo_end_to_end_agent_workflow(base_dir):
+    create_result = obo_create(
+        base_dir=base_dir,
+        title="Workflow Session",
+        description="agent flow",
+        items=[
+            {
+                "id": "phase-1",
+                "title": "Design",
+                "urgency": 5,
+                "importance": 5,
+                "effort": 2,
+                "dependencies": 2,
+            },
+            {
+                "id": "phase-2",
+                "title": "Build",
+                "urgency": 3,
+                "importance": 4,
+                "effort": 3,
+                "dependencies": 1,
+            },
+        ],
+        session_filename="session_20260314_170000.json",
+    )
+    session_name = json.loads(create_result)["session_file"]
+
+    next_result = obo_next(session_file=session_name, base_dir=base_dir)
+    assert json.loads(next_result)["id"] == "phase-1"
+
+    in_progress_result = obo_mark_in_progress(
+        session_file=session_name,
+        item_id="phase-1",
+        base_dir=base_dir,
+    )
+    assert json.loads(in_progress_result)["action"] == "in_progress"
+
+    resumed_result = obo_next(session_file=session_name, base_dir=base_dir)
+    assert json.loads(resumed_result)["id"] == "phase-1"
+
+    merge_result = obo_merge_items(
+        session_file=session_name,
+        items=[{"id": "phase-3", "title": "Verify"}],
+        base_dir=base_dir,
+    )
+    assert json.loads(merge_result)["merged_count"] == 1
+
+    assert obo_complete_session(
+        session_file=session_name,
+        base_dir=base_dir,
+    ).startswith("ERROR:")
+
+    complete_result = obo_mark_complete(
+        session_file=session_name,
+        item_id="phase-1",
+        resolution="Design done",
+        base_dir=base_dir,
+    )
+    assert json.loads(complete_result)["action"] == "completed"
+
+    skip_result = obo_mark_skip(
+        session_file=session_name,
+        item_id="phase-2",
+        reason="Deferred",
+        base_dir=base_dir,
+    )
+    assert json.loads(skip_result)["action"] == "skipped"
+
+    final_complete_result = obo_mark_complete(
+        session_file=session_name,
+        item_id="phase-3",
+        resolution="Verified",
+        base_dir=base_dir,
+    )
+    assert json.loads(final_complete_result)["action"] == "completed"
+
+    status_result = obo_session_status(session_file=session_name, base_dir=base_dir)
+    status_data = json.loads(status_result)
+    assert status_data["status"] == "completed"
+    assert status_data["completed"] == 2
+    assert status_data["skipped"] == 1
+    assert status_data["pending"] == 0
+    assert status_data["in_progress"] == 0
+
+    close_result = obo_complete_session(session_file=session_name, base_dir=base_dir)
+    close_data = json.loads(close_result)
+    assert close_data["action"] == "session_completed"
+    assert close_data["session_status"] == "completed"
+
+    sessions_result = obo_list_sessions(base_dir=base_dir, status_filter="completed")
+    sessions_data = json.loads(sessions_result)
+    assert sessions_data["total"] == 1
+    assert sessions_data["sessions"][0]["file"] == session_name
