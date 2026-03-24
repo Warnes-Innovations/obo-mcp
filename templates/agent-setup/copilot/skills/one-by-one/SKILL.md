@@ -15,9 +15,9 @@ Process multiple items sequentially with priority scoring, dependency analysis, 
 
 ## Session Management
 
-Prefer the `obo-mcp` MCP tools for `.github/obo_sessions/` state.
+Prefer the `oboe-mcp` MCP tools for `.github/obo_sessions/` state.
 Do not read or write session JSON directly when the MCP tools can perform the operation.
-If `obo-mcp` is unavailable, stop and surface the blocker instead of silently falling back.
+If `oboe-mcp` is unavailable, stop and surface the blocker instead of silently falling back.
 
 ## Key Operations
 

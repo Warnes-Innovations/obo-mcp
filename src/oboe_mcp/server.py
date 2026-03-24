@@ -1,5 +1,5 @@
 """
-OBO MCP Server — 16 tools for One-By-One session management.
+Oboe MCP Server — 16 tools for One-By-One session management.
 
 Uses FastMCP for concise tool registration.
 """
@@ -12,7 +12,7 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from obo_mcp.session import (
+from oboe_mcp.session import (
     complete_child_session,
     complete_session,
     create_child_session,
@@ -33,7 +33,7 @@ from obo_mcp.session import (
     validate_session_filename,
 )
 
-mcp = FastMCP("obo-mcp", instructions="One-By-One session management tools")
+mcp = FastMCP("oboe-mcp", instructions="One-By-One session management tools")
 
 _TOOL_EXCEPTIONS = (OSError, ValueError, json.JSONDecodeError)
 

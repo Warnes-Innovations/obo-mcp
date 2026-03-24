@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-03-24 12:12 EDT
 
-**Executive Summary:** This document specifies the on-disk format used by obo-mcp for OBO session state. It covers the session directory layout, filename rules, session JSON schema, item schema, the lifecycle and approval axes, derived fields, child-session relationships, and the companion index file.
+**Executive Summary:** This document specifies the on-disk format used by oboe-mcp for OBO session state. It covers the session directory layout, filename rules, session JSON schema, item schema, the lifecycle and approval axes, derived fields, child-session relationships, and the companion index file.
 
 ## Contents
 
@@ -46,7 +46,7 @@ Notes:
 
 - `index.json` is a derived summary file used as a fast path for listing sessions.
 - `session_*.json` files are the source of truth for per-session state.
-- If `index.json` is missing, corrupt, or structurally invalid, obo-mcp can rebuild it by scanning the session files on disk.
+- If `index.json` is missing, corrupt, or structurally invalid, oboe-mcp can rebuild it by scanning the session files on disk.
 
 ## Session File Schema
 
@@ -79,7 +79,7 @@ Each entry in `items` is a JSON object with these fields.
 
 | Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `id` | string or integer | yes | Item identifier. If omitted during creation, obo-mcp assigns a sequential integer starting at 1. |
+| `id` | string or integer | yes | Item identifier. If omitted during creation, oboe-mcp assigns a sequential integer starting at 1. |
 | `status` | string | yes | Lifecycle status: `pending`, `in_progress`, `deferred`, `blocked`, `completed`, or `skipped`. |
 | `title` | string | yes | Short label for the item. Defaults to `Item {id}`. |
 | `category` | string | yes | Category label. Defaults to `General`. |
@@ -103,7 +103,7 @@ Normalization defaults:
 
 - New items are normalized at creation or merge time.
 - Missing `priority_score` is always recalculated from the score component fields.
-- If an item moves out of `blocked`, obo-mcp clears `blocker` and `blocked_at`.
+- If an item moves out of `blocked`, oboe-mcp clears `blocker` and `blocked_at`.
 
 ## Status Semantics
 

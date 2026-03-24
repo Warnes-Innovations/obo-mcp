@@ -387,13 +387,13 @@ The installer:
 
 - asks which client or clients you want to configure: Copilot, Codex, Claude Code, Cline, or all of them
 - asks whether to install shared workflow instructions at the user level when supported or into a target project
-- writes the `obo-mcp` MCP server entry into each client's real config file
+- writes the `oboe-mcp` MCP server entry into each client's real config file
 - installs the packaged OBO instructions, prompt, and skill files into the matching destination
 - explains what it is changing and makes timestamped backups before it updates existing files
 
 The automated installer uses the current checkout path in `uvx --from ...`, so it is best when you are installing from a local clone of this repository.
 
-If you want clients to install `obo-mcp` from the published GitHub URL instead of a local checkout, follow the manual steps below.
+If you want clients to install `oboe-mcp` from the published GitHub URL instead of a local checkout, follow the manual steps below.
 
 ### Manual Installation
 
@@ -404,20 +404,20 @@ If you are wiring up an MCP config by hand, point it at either your local checko
 Local checkout example:
 
 ```json
-"obo-mcp": {
+"oboe-mcp": {
   "type": "stdio",
   "command": "uvx",
-  "args": ["--from", "/absolute/path/to/obo-mcp", "obo-mcp"]
+  "args": ["--from", "/absolute/path/to/oboe-mcp", "oboe-mcp"]
 }
 ```
 
 Published GitHub URL example:
 
 ```json
-"obo-mcp": {
+"oboe-mcp": {
   "type": "stdio",
   "command": "uvx",
-  "args": ["--from", "git+https://github.com/warnes-innovations/obo-mcp", "obo-mcp"]
+  "args": ["--from", "git+https://github.com/warnes-innovations/oboe-mcp", "oboe-mcp"]
 }
 ```
 
@@ -429,25 +429,25 @@ This repository includes reusable templates under `templates/agent-setup/`:
 - `templates/agent-setup/AGENTS.md`
 - `templates/agent-setup/CLAUDE.md`
 
-Registering `obo-mcp` only exposes the `obo_*` tools. It does not by itself guarantee the overview-first, dependency-aware, one-item-at-a-time workflow shown in the toy example above. To make agent behavior reliable, install both parts:
+Registering `oboe-mcp` only exposes the `obo_*` tools. It does not by itself guarantee the overview-first, dependency-aware, one-item-at-a-time workflow shown in the toy example above. To make agent behavior reliable, install both parts:
 
 - the MCP server registration, so the agent can call the tools
 - the shared OBO instructions, so the agent knows when to switch from plain chat or a simple question tool into a real OBO session
 
 Across clients, the same pattern applies:
 
-1. Register `obo-mcp` in the client's MCP configuration.
+1. Register `oboe-mcp` in the client's MCP configuration.
 2. Copy or merge the packaged OBO instructions into the client's instruction location.
 3. Keep existing repository guidance and merge the OBO rules into it instead of overwriting it.
 4. Expect the installed instructions to tell the agent when OBO is preferred over plain chat, how to start with an overview, how to resume or merge existing sessions, and how to avoid direct JSON edits.
 
 #### GitHub Copilot
 
-For Copilot, register `obo-mcp` in your VS Code MCP config and then copy the packaged OBO files into either your VS Code user configuration or the target repository's `.github/` folder.
+For Copilot, register `oboe-mcp` in your VS Code MCP config and then copy the packaged OBO files into either your VS Code user configuration or the target repository's `.github/` folder.
 
 Without those installed files, Copilot may still use plain chat or `askQuestions`-style interaction even though the MCP tools are available. The packaged instruction, skill, and prompt files are what push Copilot toward the full OBO workflow.
 
-VS Code MCP config files are normally stored in the same user configuration folder as `copilot-instructions.md`. Add an `obo-mcp` entry to `mcp.json` with either your local checkout path or the published GitHub URL.
+VS Code MCP config files are normally stored in the same user configuration folder as `copilot-instructions.md`. Add an `oboe-mcp` entry to `mcp.json` with either your local checkout path or the published GitHub URL.
 
 VS Code user configuration folders:
 
@@ -492,12 +492,12 @@ The packaged skill provides the trigger logic for when OBO should be used, and t
 
 For Codex, the same two-part pattern applies: register the MCP server in `~/.codex/config.toml`, then copy or merge the shared OBO instruction template into the target repository's `AGENTS.md`.
 
-Register `obo-mcp` in `~/.codex/config.toml`:
+Register `oboe-mcp` in `~/.codex/config.toml`:
 
 ```toml
-[mcp_servers.obo-mcp]
+[mcp_servers.oboe-mcp]
 command = "uvx"
-args = ["--from", "git+https://github.com/warnes-innovations/obo-mcp", "obo-mcp"]
+args = ["--from", "git+https://github.com/warnes-innovations/oboe-mcp", "oboe-mcp"]
 ```
 
 Replace the GitHub URL with your local checkout path if you want Codex to run from a clone you already have on disk.
@@ -522,20 +522,20 @@ JSON config example for `~/.claude/settings.json`:
 ```json
 {
   "mcpServers": {
-    "obo-mcp": {
+    "oboe-mcp": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/warnes-innovations/obo-mcp", "obo-mcp"]
+      "args": ["--from", "git+https://github.com/warnes-innovations/oboe-mcp", "oboe-mcp"]
     }
   }
 }
 ```
 
-Register `obo-mcp` in Claude Code:
+Register `oboe-mcp` in Claude Code:
 
 ```bash
-claude mcp add --transport stdio --scope project obo-mcp -- \
-  uvx --from git+https://github.com/warnes-innovations/obo-mcp obo-mcp
+claude mcp add --transport stdio --scope project oboe-mcp -- \
+  uvx --from git+https://github.com/warnes-innovations/oboe-mcp oboe-mcp
 ```
 
 Then copy or merge `templates/agent-setup/CLAUDE.md` into the target repository as `CLAUDE.md` or `.claude/CLAUDE.md`. If one of those files already exists, merge the OBO rules into the existing instructions instead of replacing them.
@@ -553,17 +553,17 @@ For Cline, register the MCP server in `cline_mcp_settings.json` and then copy or
 
 This follows the same pattern as the other clients: MCP registration exposes the tools, while the instruction text tells Cline when to use a durable OBO workflow instead of a lighter prompt or chat interaction.
 
-A local stdio configuration for `obo-mcp` looks like this:
+A local stdio configuration for `oboe-mcp` looks like this:
 
 ```json
 {
   "mcpServers": {
-    "obo-mcp": {
+    "oboe-mcp": {
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/warnes-innovations/obo-mcp",
-        "obo-mcp"
+        "git+https://github.com/warnes-innovations/oboe-mcp",
+        "oboe-mcp"
       ],
       "disabled": false
     }
@@ -611,4 +611,4 @@ Minimal rule set to reuse across agents:
 - Use `obo_session_status` or `obo_list_items` to inspect state.
 - Use `obo_complete_session` when no actionable items remain.
 
-Session file paths, filename rules, JSON fields, status semantics, priority scoring, and the `index.json` summary format are documented in [docs/SESSION_FORMAT.md](/Users/warnes/src/obo-mcp/docs/SESSION_FORMAT.md).
+Session file paths, filename rules, JSON fields, status semantics, priority scoring, and the `index.json` summary format are documented in [docs/SESSION_FORMAT.md](/Users/warnes/src/oboe-mcp/docs/SESSION_FORMAT.md).

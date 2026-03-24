@@ -2,9 +2,8 @@
 
 import json
 import pytest
-from pathlib import Path
 
-from obo_mcp.session import (
+from oboe_mcp.session import (
     complete_child_session,
     complete_session,
     create_child_session,
@@ -13,7 +12,6 @@ from obo_mcp.session import (
     get_next,
     list_items,
     list_sessions,
-    load_index,
     mark_blocked,
     mark_complete,
     mark_in_progress,
@@ -28,7 +26,6 @@ from obo_mcp.session import (
     _is_valid_index,
     _rebuild_index_from_files,
     _recalc_priority,
-    _SCORE_COMPONENTS,
 )
 
 
@@ -36,26 +33,49 @@ from obo_mcp.session import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
-@pytest.fixture
-def sessions_dir(tmp_path):
+@pytest.fixture(name="sessions_dir")
+def fixture_sessions_dir(tmp_path):
     d = tmp_path / ".github" / "obo_sessions"
     d.mkdir(parents=True)
     return d
 
 
-@pytest.fixture
-def sample_items():
+@pytest.fixture(name="sample_items")
+def fixture_sample_items():
     return [
-        {"title": "Alpha", "urgency": 5, "importance": 4, "effort": 2, "dependencies": 3},
-        {"title": "Beta",  "urgency": 2, "importance": 3, "effort": 4, "dependencies": 1},
-        {"title": "Gamma", "urgency": 3, "importance": 3, "effort": 3, "dependencies": 1},
+        {
+            "title": "Alpha",
+            "urgency": 5,
+            "importance": 4,
+            "effort": 2,
+            "dependencies": 3,
+        },
+        {
+            "title": "Beta",
+            "urgency": 2,
+            "importance": 3,
+            "effort": 4,
+            "dependencies": 1,
+        },
+        {
+            "title": "Gamma",
+            "urgency": 3,
+            "importance": 3,
+            "effort": 3,
+            "dependencies": 1,
+        },
     ]
 
 
-@pytest.fixture
-def session_file(sessions_dir, sample_items):
+@pytest.fixture(name="session_file")
+def fixture_session_file(sessions_dir, sample_items):
     sf = sessions_dir / "session_20260314_120000.json"
-    create_session(sf, sample_items, title="Test Session", description="A test")
+    create_session(
+        sf,
+        sample_items,
+        title="Test Session",
+        description="A test",
+    )
     return sf
 
 
@@ -112,10 +132,20 @@ def test_create_session_raises_if_exists(session_file, sample_items):
 
 
 def test_create_session_calculates_priority(sessions_dir):
-    items = [{"title": "X", "urgency": 5, "importance": 5, "effort": 1, "dependencies": 5}]
+    items = [
+        {
+            "title": "X",
+            "urgency": 5,
+            "importance": 5,
+            "effort": 1,
+            "dependencies": 5,
+        }
+    ]
     sf = sessions_dir / "session_20260314_160000.json"
     session = create_session(sf, items)
-    assert session["items"][0]["priority_score"] == 5 + 5 + (6 - 1) + 5  # == 20
+    assert (
+        session["items"][0]["priority_score"] == 5 + 5 + (6 - 1) + 5
+    )
 
 
 def test_create_session_accepts_blocked_item_status(sessions_dir):
@@ -160,21 +190,26 @@ def test_create_session_rejects_invalid_filename(sessions_dir, sample_items):
 # ---------------------------------------------------------------------------
 
 def test_get_next_returns_highest_priority_pending(session_file):
-    # Alpha: 5+4+(6-2)+3 = 16, Beta: 2+3+(6-4)+1 = 8, Gamma: 3+3+(6-3)+1 = 10
+    # Alpha: 5+4+(6-2)+3 = 16, Beta: 2+3+(6-4)+1 = 8,
+    # Gamma: 3+3+(6-3)+1 = 10
     item = get_next(session_file)
     assert item["title"] == "Alpha"
     assert item["priority_score"] == 16
 
 
 def test_get_next_prefers_in_progress(session_file):
-    # Mark Beta as in_progress; Alpha has higher score but in_progress takes precedence
+    # Mark Beta as in_progress; Alpha has higher score,
+    # but in_progress takes precedence.
     update_field(session_file, 2, "status", "in_progress")
     item = get_next(session_file)
     assert item["title"] == "Beta"
 
 
 def test_get_next_returns_none_when_all_done(sessions_dir):
-    items = [{"title": "Done", "status": "completed"}, {"title": "Skip", "status": "skipped"}]
+    items = [
+        {"title": "Done", "status": "completed"},
+        {"title": "Skip", "status": "skipped"},
+    ]
     sf = sessions_dir / "session_20260314_170000.json"
     create_session(sf, items)
     assert get_next(sf) is None
@@ -182,8 +217,20 @@ def test_get_next_returns_none_when_all_done(sessions_dir):
 
 def test_get_next_all_pending(sessions_dir):
     items = [
-        {"title": "Low",  "urgency": 1, "importance": 1, "effort": 5, "dependencies": 1},
-        {"title": "High", "urgency": 5, "importance": 5, "effort": 1, "dependencies": 5},
+        {
+            "title": "Low",
+            "urgency": 1,
+            "importance": 1,
+            "effort": 5,
+            "dependencies": 1,
+        },
+        {
+            "title": "High",
+            "urgency": 5,
+            "importance": 5,
+            "effort": 1,
+            "dependencies": 5,
+        },
     ]
     sf = sessions_dir / "session_20260314_180000.json"
     create_session(sf, items)
@@ -202,7 +249,13 @@ def test_get_next_skips_blocked_items(sessions_dir):
             "effort": 1,
             "dependencies": 5,
         },
-        {"title": "Ready", "urgency": 3, "importance": 3, "effort": 3, "dependencies": 1},
+        {
+            "title": "Ready",
+            "urgency": 3,
+            "importance": 3,
+            "effort": 3,
+            "dependencies": 1,
+        },
     ]
     sf = sessions_dir / "session_20260314_181000.json"
     create_session(sf, items)
@@ -371,7 +424,9 @@ def test_update_field_sets_approval_status(session_file):
     assert item["approved_at"] is not None
 
 
-def test_update_field_sets_approval_mode_and_backfills_approval_status(session_file):
+def test_update_field_sets_approval_mode_and_backfills_approval_status(
+    session_file,
+):
     item = update_field(session_file, 1, "approval_mode", "delayed")
     assert item["approval_mode"] == "delayed"
     assert item["approval_status"] == "approved"
@@ -543,7 +598,15 @@ def test_list_sessions_fallback_no_index(tmp_path):
     d.mkdir(parents=True)
     # Write session file directly without creating index
     sf = d / "session_20260314_190000.json"
-    items = [{"title": "X", "urgency": 3, "importance": 3, "effort": 3, "dependencies": 1}]
+    items = [
+        {
+            "title": "X",
+            "urgency": 3,
+            "importance": 3,
+            "effort": 3,
+            "dependencies": 1,
+        }
+    ]
     from datetime import datetime
     session_data = {
         "session_file": sf.name,
@@ -551,8 +614,18 @@ def test_list_sessions_fallback_no_index(tmp_path):
         "title": "Direct Write",
         "description": "",
         "status": "active",
-        "items": [dict(items[0], id=1, status="pending", category="General",
-                       description="", resolution=None, skip_reason=None, priority_score=10)],
+        "items": [
+            dict(
+                items[0],
+                id=1,
+                status="pending",
+                category="General",
+                description="",
+                resolution=None,
+                skip_reason=None,
+                priority_score=10,
+            )
+        ],
     }
     sf.write_text(json.dumps(session_data))
     rows = list_sessions(d)
@@ -568,7 +641,9 @@ def test_list_sessions_status_filter_incomplete(sessions_dir, session_file):
     assert any(r["file"] == session_file.name for r in rows)
 
 
-def test_list_sessions_status_filter_incomplete_includes_deferred_only(sessions_dir):
+def test_list_sessions_status_filter_incomplete_includes_deferred_only(
+    sessions_dir,
+):
     sf = sessions_dir / "session_20260314_190500.json"
     create_session(
         sf,
@@ -603,7 +678,9 @@ def test_list_sessions_status_filter_paused(sessions_dir, session_file):
     assert any(r["file"] == session_file.name for r in rows)
 
 
-def test_list_sessions_status_filter_incomplete_includes_in_progress_only(sessions_dir):
+def test_list_sessions_status_filter_incomplete_includes_in_progress_only(
+    sessions_dir,
+):
     sf = sessions_dir / "session_20260314_195000.json"
     create_session(sf, [{"title": "Only Item"}])
     mark_in_progress(sf, 1)
@@ -611,7 +688,10 @@ def test_list_sessions_status_filter_incomplete_includes_in_progress_only(sessio
     assert any(r["file"] == sf.name for r in rows)
 
 
-def test_create_child_session_pauses_parent_and_blocks_item(session_file, sessions_dir):
+def test_create_child_session_pauses_parent_and_blocks_item(
+    session_file,
+    sessions_dir,
+):
     child_sf = sessions_dir / "session_20260314_200000.json"
     result = create_child_session(
         session_file,
@@ -644,7 +724,10 @@ def test_complete_child_session_resumes_parent(session_file, sessions_dir):
     )
     mark_complete(child_sf, 1, "Child done")
 
-    result = complete_child_session(child_sf, resolution="Nested work finished")
+    result = complete_child_session(
+        child_sf,
+        resolution="Nested work finished",
+    )
     parent_session = result["parent_session"]
     child_session = result["child_session"]
 
@@ -681,8 +764,17 @@ def test_resolve_session_file_absolute(tmp_path):
 
 def test_resolve_session_file_relative_with_base(tmp_path):
     base = tmp_path
-    result = resolve_session_file("session_20260314_120000.json", base_dir=base)
-    assert result == (tmp_path / ".github" / "obo_sessions" / "session_20260314_120000.json").resolve()
+    result = resolve_session_file(
+        "session_20260314_120000.json",
+        base_dir=base,
+    )
+    expected = (
+        tmp_path
+        / ".github"
+        / "obo_sessions"
+        / "session_20260314_120000.json"
+    ).resolve()
+    assert result == expected
 
 
 def test_resolve_session_file_relative_no_base():
@@ -734,7 +826,11 @@ def test_complete_session_raises_with_actionable_items(session_file):
 
 def test_complete_session_succeeds_when_done(sessions_dir):
     sf = sessions_dir / "session_20260314_196000.json"
-    create_session(sf, [{"title": "Done", "status": "completed"}], title="Finished")
+    create_session(
+        sf,
+        [{"title": "Done", "status": "completed"}],
+        title="Finished",
+    )
     session = complete_session(sf)
     assert session["status"] == "completed"
     assert session["completed_at"]
@@ -755,7 +851,11 @@ def test_merge_items_appends_and_reopens_completed_session(sessions_dir):
 
 def test_merge_items_rejects_duplicate_ids(sessions_dir):
     sf = sessions_dir / "session_20260314_198000.json"
-    create_session(sf, [{"id": "phase-1", "title": "Initial"}], title="Dup Test")
+    create_session(
+        sf,
+        [{"id": "phase-1", "title": "Initial"}],
+        title="Dup Test",
+    )
     with pytest.raises(ValueError, match="Duplicate item id"):
         merge_items(sf, [{"id": "phase-1", "title": "Conflict"}])
 
@@ -814,7 +914,10 @@ def test_rebuild_index_marks_unreadable_files(sessions_dir):
 # Corrupt index.json → auto-repair via list_sessions
 # ---------------------------------------------------------------------------
 
-def test_list_sessions_corrupt_json_triggers_rebuild(sessions_dir, session_file):
+def test_list_sessions_corrupt_json_triggers_rebuild(
+    sessions_dir,
+    session_file,
+):
     """Corrupt JSON in index.json should trigger a full rebuild."""
     idx_path = sessions_dir / "index.json"
     idx_path.write_text("{ this is not valid json }")
@@ -826,7 +929,10 @@ def test_list_sessions_corrupt_json_triggers_rebuild(sessions_dir, session_file)
     assert any(s["file"] == session_file.name for s in repaired["sessions"])
 
 
-def test_list_sessions_wrong_format_version_triggers_rebuild(sessions_dir, session_file):
+def test_list_sessions_wrong_format_version_triggers_rebuild(
+    sessions_dir,
+    session_file,
+):
     """An index with an unsupported format_version should trigger a rebuild."""
     idx_path = sessions_dir / "index.json"
     idx_path.write_text(json.dumps({
@@ -840,7 +946,10 @@ def test_list_sessions_wrong_format_version_triggers_rebuild(sessions_dir, sessi
     assert repaired["format_version"] == 1
 
 
-def test_list_sessions_wrong_structure_triggers_rebuild(sessions_dir, session_file):
+def test_list_sessions_wrong_structure_triggers_rebuild(
+    sessions_dir,
+    session_file,
+):
     """An index whose sessions key is not a list should trigger a rebuild."""
     idx_path = sessions_dir / "index.json"
     idx_path.write_text(json.dumps({
@@ -852,8 +961,11 @@ def test_list_sessions_wrong_structure_triggers_rebuild(sessions_dir, session_fi
     assert any(r["file"] == session_file.name for r in rows)
 
 
-def test_list_sessions_index_not_a_dict_triggers_rebuild(sessions_dir, session_file):
-    """An index that is a JSON array instead of an object should trigger a rebuild."""
+def test_list_sessions_index_not_a_dict_triggers_rebuild(
+    sessions_dir,
+    session_file,
+):
+    """A JSON-array index instead of an object should trigger rebuild."""
     idx_path = sessions_dir / "index.json"
     idx_path.write_text(json.dumps([{"format_version": 1}]))
     rows = list_sessions(sessions_dir)
@@ -861,11 +973,15 @@ def test_list_sessions_index_not_a_dict_triggers_rebuild(sessions_dir, session_f
 
 
 # ---------------------------------------------------------------------------
-# Corrupt index.json → auto-repair via _upsert_index (called from mark_complete)
+# Corrupt index.json -> auto-repair via _upsert_index,
+# called from mark_complete.
 # ---------------------------------------------------------------------------
 
-def test_upsert_preserves_other_sessions_when_index_corrupt(sessions_dir, sample_items):
-    """mark_complete on one session must not erase other sessions from the index."""
+def test_upsert_preserves_other_sessions_when_index_corrupt(
+    sessions_dir,
+    sample_items,
+):
+    """mark_complete on one session must not erase other sessions."""
     sf1 = sessions_dir / "session_20260314_120000.json"
     sf2 = sessions_dir / "session_20260314_130000.json"
     create_session(sf1, sample_items, title="Session A")

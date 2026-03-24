@@ -3,10 +3,10 @@ description: "Process multiple items sequentially with priority scoring, resume 
 name: "OBO Review Session"
 argument-hint: "Optional context or item source such as a finding list, task list, or requirements"
 agent: "agent"
-tools: [obo-mcp/*]
+tools: [oboe-mcp/*]
 ---
 
-Use the `obo-mcp` MCP server to manage a One-By-One review session for the current workspace.
+Use the `oboe-mcp` MCP server to manage a One-By-One review session for the current workspace.
 
 Follow this workflow:
 

@@ -5,7 +5,7 @@
 import json
 import pytest
 
-from obo_mcp.server import (
+from oboe_mcp.server import (
     obo_complete_child_session,
     obo_complete_session,
     obo_create,
@@ -115,7 +115,7 @@ def test_obo_create_updates_index(base_dir):
         items=SAMPLE_ITEMS,
         session_filename="session_20260314_140000.json",
     )
-    from obo_mcp.session import obo_sessions_dir, load_index
+    from oboe_mcp.session import obo_sessions_dir, load_index
 
     idx = load_index(obo_sessions_dir(base_dir))
     assert any(

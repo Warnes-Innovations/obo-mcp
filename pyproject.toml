@@ -1,18 +1,19 @@
 [project]
-name = "obo-mcp"
+name = "oboe-mcp"
 version = "0.1.0"
+description = "MCP server for durable one-by-one review workflows, with prioritized session state for coding agents."
 requires-python = ">=3.11"
 dependencies = ["mcp>=1.0"]
 
 [project.scripts]
-obo-mcp = "obo_mcp.server:main"
+oboe-mcp = "oboe_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/obo_mcp"]
+packages = ["src/oboe_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -20,5 +21,5 @@ testpaths = ["tests"]
 [tool.mypy]
 
 [[tool.mypy.overrides]]
-module = ["obo_mcp", "obo_mcp.*"]
+module = ["oboe_mcp", "oboe_mcp.*"]
 ignore_missing_imports = true

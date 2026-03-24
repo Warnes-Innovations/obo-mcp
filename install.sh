@@ -17,13 +17,13 @@ PROJECT_DIR=""
 UPDATED_PATHS=()
 
 print_header() {
-    echo -e "${BLUE}obo-mcp installer${NC}"
+    echo -e "${BLUE}oboe-mcp installer${NC}"
     echo "================="
     echo ""
-    echo "This script installs the obo-mcp MCP server from the current checkout:"
+    echo "This script installs the oboe-mcp MCP server from the current checkout:"
     echo "  $REPO_SOURCE"
     echo ""
-    echo "It will ask which clients you use, wire obo-mcp into their MCP config,"
+    echo "It will ask which clients you use, wire oboe-mcp into their MCP config,"
     echo "and install the packaged workflow instructions into the right place."
     echo ""
 }
@@ -179,10 +179,10 @@ else:
 servers = data.get("servers")
 if not isinstance(servers, dict):
     servers = {}
-servers["obo-mcp"] = {
+servers["oboe-mcp"] = {
     "type": "stdio",
     "command": "uvx",
-    "args": ["--from", repo_source, "obo-mcp"],
+    "args": ["--from", repo_source, "oboe-mcp"],
 }
 data["servers"] = servers
 if "inputs" not in data or not isinstance(data["inputs"], list):
@@ -229,10 +229,10 @@ else:
 bucket = data.get(root_key)
 if not isinstance(bucket, dict):
     bucket = {}
-bucket["obo-mcp"] = {
+bucket["oboe-mcp"] = {
     "type": "stdio",
     "command": "uvx",
-    "args": ["--from", repo_source, "obo-mcp"],
+    "args": ["--from", repo_source, "oboe-mcp"],
 }
 data[root_key] = bucket
 sys.stdout.write(json.dumps(data, indent=2) + "\n")
@@ -269,12 +269,12 @@ import sys
 target_path = Path(sys.argv[1])
 repo_source = sys.argv[2]
 block = (
-    '[mcp_servers.obo-mcp]\n'
+    '[mcp_servers.oboe-mcp]\n'
     'command = "uvx"\n'
-    f'args = ["--from", "{repo_source}", "obo-mcp"]\n'
+    f'args = ["--from", "{repo_source}", "oboe-mcp"]\n'
 )
 text = target_path.read_text() if target_path.exists() else ""
-pattern = re.compile(r'^\[mcp_servers\.obo-mcp\]\n(?:^(?!\[).*$\n?)*', re.M)
+pattern = re.compile(r'^\[mcp_servers\.oboe-mcp\]\n(?:^(?!\[).*$\n?)*', re.M)
 
 if pattern.search(text):
     updated = pattern.sub(block, text, count=1)
@@ -460,8 +460,8 @@ install_copilot() {
     merge_markdown_block \
         "$SCRIPT_DIR/templates/agent-setup/copilot/copilot-instructions.md" \
         "$instruction_target" \
-        "<!-- obo-mcp:start -->" \
-        "<!-- obo-mcp:end -->"
+        "<!-- oboe-mcp:start -->" \
+        "<!-- oboe-mcp:end -->"
     copy_with_backup \
         "$SCRIPT_DIR/templates/agent-setup/copilot/skills/one-by-one/SKILL.md" \
         "$skill_target"
@@ -480,8 +480,8 @@ install_codex() {
     merge_markdown_block \
         "$SCRIPT_DIR/templates/agent-setup/AGENTS.md" \
         "$agents_target" \
-        "<!-- obo-mcp:start -->" \
-        "<!-- obo-mcp:end -->"
+        "<!-- oboe-mcp:start -->" \
+        "<!-- oboe-mcp:end -->"
     echo ""
 }
 
@@ -495,8 +495,8 @@ install_claude() {
     merge_markdown_block \
         "$SCRIPT_DIR/templates/agent-setup/CLAUDE.md" \
         "$claude_target" \
-        "<!-- obo-mcp:start -->" \
-        "<!-- obo-mcp:end -->"
+        "<!-- oboe-mcp:start -->" \
+        "<!-- oboe-mcp:end -->"
     echo ""
 }
 
@@ -510,8 +510,8 @@ install_cline() {
     merge_markdown_block \
         "$SCRIPT_DIR/templates/agent-setup/AGENTS.md" \
         "$cline_rules_target" \
-        "<!-- obo-mcp:start -->" \
-        "<!-- obo-mcp:end -->"
+        "<!-- oboe-mcp:start -->" \
+        "<!-- oboe-mcp:end -->"
     echo ""
 }
 
@@ -523,7 +523,7 @@ print_plan() {
     fi
     echo ""
     echo "The MCP server entries will use this checkout in uvx:"
-    echo "  uvx --from $REPO_SOURCE obo-mcp"
+    echo "  uvx --from $REPO_SOURCE oboe-mcp"
     echo ""
 }
 
@@ -540,9 +540,9 @@ print_summary() {
         echo ""
     fi
 
-    echo "If you want clients to install obo-mcp from the published GitHub URL instead"
+    echo "If you want clients to install oboe-mcp from the published GitHub URL instead"
     echo "of this local checkout, use the manual commands in README.md and replace the"
-    echo "local --from path with git+https://github.com/warnes-innovations/obo-mcp."
+    echo "local --from path with git+https://github.com/warnes-innovations/oboe-mcp."
 }
 
 main() {

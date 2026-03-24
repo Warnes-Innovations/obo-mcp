@@ -16,7 +16,7 @@ Why it matters:
 - easier to resume after model restarts or editor reloads
 - clearer approval flow for code review, planning, and issue triage
 
-We packaged it as `obo-mcp`, with templates for Copilot, Codex, Claude Code, and Cline so teams can adopt the workflow model instead of just the tool surface.
+We packaged it as `oboe-mcp`, with templates for Copilot, Codex, Claude Code, and Cline so teams can adopt the workflow model instead of just the tool surface.
 
 If you are working on agent UX, code review workflows, or MCP-based developer tooling, this pattern is worth a look.
 
