@@ -21,7 +21,7 @@ Follow this workflow:
 2. If an incomplete session exists, ask whether to resume, merge, defer, replace, or stop.
 3. If creating a new session, extract discrete items from the current context.
 4. Assign priority factors for each item using urgency, importance, effort, and dependencies.
-5. Call `obo_create` to persist the session.
+5. Call `obo_create` to persist the session. `items` is optional — if items are not yet known at session creation time, omit them and populate the session later with `obo_merge_items`.
 6. If adding to an existing session, call `obo_merge_items`.
 7. Present an executive summary before reviewing individual items. Include scope, item count, highest-impact items, important dependencies, and proposed order.
 8. Use `obo_next` to choose the next actionable item.
