@@ -32,14 +32,14 @@ If `oboe-mcp` is unavailable, stop and surface the blocker instead of silently f
 | Operation | How |
 |-----------|-----|
 | List existing sessions | `obo_list_sessions(base_dir, status_filter?)` |
-| Create new session | `obo_create(base_dir, title, description, items=[...])` |
+| Create new session | `obo_create(base_dir, title, description, items?=[...])` |
 | Merge into session | `obo_merge_items(session_file, items=[...], base_dir?)` |
 | Mark item blocked | `obo_mark_blocked(session_file, item_id, blocker, base_dir?)` |
 | Mark item complete | `obo_mark_complete(session_file, item_id, resolution, base_dir?)` |
 | Skip item | `obo_mark_skip(session_file, item_id, base_dir?, reason?)` |
 | Mark item in progress | `obo_mark_in_progress(session_file, item_id, base_dir?)` |
 | Set approval | `obo_set_approval(session_file, item_id, approval_status, base_dir?, approval_mode?, note?, lifecycle_status?)` |
-| Create child session | `obo_create_child_session(parent_session_file, title, description, items, base_dir?, parent_item_id?, session_filename?)` |
+| Create child session | `obo_create_child_session(parent_session_file, title, description, items?=[...], base_dir?, parent_item_id?, session_filename?)` |
 | Complete child session | `obo_complete_child_session(child_session_file, base_dir?, resolution?)` |
 | Update a field | `obo_update_field(session_file, item_id, field, value, base_dir?)` |
 | Find next item | `obo_next(session_file, base_dir?)` |
@@ -87,7 +87,7 @@ Definitions:
 1. Check for incomplete sessions first.
 2. Offer resume, merge, replace, or stop with the structured question tool whenever predefined options are available.
 3. Extract items and assign priority factors.
-4. Persist the session with `obo_create` or `obo_merge_items`.
+4. Persist the session with `obo_create` or `obo_merge_items`. `items` is optional in `obo_create` and `obo_create_child_session`; if items are not yet known, create the session first and populate it later with `obo_merge_items`.
 5. Present an executive summary for the full list, including major dependencies and proposed order.
 6. Present one item at a time.
 7. Mark items `blocked` when progress cannot continue and store the blocker.

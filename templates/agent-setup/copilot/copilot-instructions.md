@@ -23,7 +23,7 @@ Use the OBO MCP tools for all One-By-One review session work in this workspace.
 - Never directly create, edit, repair, or reorder files in `.github/obo_sessions/`.
 - Use `obo_list_sessions` before starting a new OBO session.
 - If an incomplete session exists, use the structured question tool to ask whether to resume, merge, replace, or stop.
-- Use `obo_create` to start a new session.
+- Use `obo_create` to start a new session. `items` is optional; if items are not yet known, omit them and add them later with `obo_merge_items`.
 - Use `obo_merge_items` to append new findings to an existing session.
 - Use the `one-by-one` skill when available to decide whether the task should become an OBO workflow.
 - Start the session with an overview of scope, item count, major dependencies, and proposed order.
